@@ -1,0 +1,18 @@
+{
+	"name": "custom-registry",
+	"type": "module",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy --minify",
+		"cf-typegen": "wrangler types --env-interface CloudflareBindings",
+		"format": "biome check --write"
+	},
+	"dependencies": {
+		"hono": "^4.11.5"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.12",
+		"shadcn": "^3.7.0",
+		"wrangler": "^4.4.0"
+	}
+}
