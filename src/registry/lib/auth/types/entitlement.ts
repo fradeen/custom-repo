@@ -1,6 +1,6 @@
-import type { Policy } from "@/registry/types/auth/policy";
-import type { BaseResource } from "@/registry/types/auth/resource";
-import type { BaseSubject } from "@/registry/types/auth/subject";
+import type { Policy } from "@/registry/lib/auth/types/policy";
+import type { BaseResource } from "@/registry/lib/auth/types/resource";
+import type { BaseSubject } from "@/registry/lib/auth/types/subject";
 
 export type Entitlement<
 	S extends BaseSubject,

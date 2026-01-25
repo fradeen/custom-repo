@@ -1,7 +1,7 @@
 import type { Operator } from "@/registry/lib/auth/constant";
-import type { AuthContext } from "@/registry/types/auth/policy";
-import type { BaseResource } from "@/registry/types/auth/resource";
-import type { BaseSubject } from "@/registry/types/auth/subject";
+import type { AuthContext } from "@/registry/lib/auth/types/policy";
+import type { BaseResource } from "@/registry/lib/auth/types/resource";
+import type { BaseSubject } from "@/registry/lib/auth/types/subject";
 
 type Primitive = string | boolean | number | bigint | symbol;
 
@@ -58,13 +58,3 @@ export type ConditionTree<
 > =
 	| ValidConditionNode<S, Resource, RequiresResource>
 	| GroupNode<S, Resource, RequiresResource>;
-
-// const test: ConditionTree<
-// 	{ id: number; dob: Date; list: number[] },
-// 	{ type: "abc"; userId: number; dob: Date; list: number[] },
-// 	true
-// > = {
-// 	op: "eq",
-// 	left: "subject.list",
-// 	right: "resource.list",
-// };
