@@ -1,4 +1,4 @@
-import { evaluateConditionTree } from "@/registry/lib/auth/condition-tree";
+import { evaluateConditionTree } from "@/registry/lib/auth/condition-tree-eval";
 import type { ConditionTree } from "@/registry/lib/auth/types/condition-tree";
 import type { BaseResource } from "@/registry/lib/auth/types/resource";
 import type { BaseSubject } from "@/registry/lib/auth/types/subject";

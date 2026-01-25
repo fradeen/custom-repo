@@ -14,7 +14,7 @@
 					"type": "registry:lib"
 				},
 				{
-					"path": "src/registry/lib/auth/condition-tree.ts",
+					"path": "src/registry/lib/auth/condition-tree-eval.ts",
 					"type": "registry:lib"
 				},
 				{
