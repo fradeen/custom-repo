@@ -3,7 +3,7 @@ import type { AuthContext } from "@/registry/lib/auth/types/policy";
 import type { BaseResource } from "@/registry/lib/auth/types/resource";
 import type { BaseSubject } from "@/registry/lib/auth/types/subject";
 
-type Primitive = string | boolean | number | bigint | symbol;
+type Primitive = string | boolean | number | bigint;
 
 type DotPathMap<T, Prefix extends string = ""> = {
 	[K in keyof T & string]: T[K] extends Primitive
