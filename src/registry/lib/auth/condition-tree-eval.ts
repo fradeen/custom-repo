@@ -47,7 +47,7 @@ export function evaluateConditionTree<
 
 	const rRaw =
 		typeof tree.right === "string" &&
-		(tree.right.startsWith("user.") ||
+		(tree.right.startsWith("subject.") ||
 			(tree.right.startsWith("resource.") && "resource" in ctx))
 			? getValueByPath(ctx, tree.right)
 			: tree.right;
