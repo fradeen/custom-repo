@@ -5,23 +5,22 @@ import type { BaseSubject } from "@/registry/lib/auth/types/subject";
 
 type AccessControlConfig<
 	S extends BaseSubject,
-	Actions extends Readonly<Set<string>>,
+	Actions extends Readonly<Array<string>>,
 	ResourceMap extends { [K in keyof ResourceMap]: BaseResource<K & string> },
 > = {
-	actions: Readonly<Set<string>>;
+	actions: Readonly<Array<string>>;
 	getConditions: (
 		subject: S,
 		resource: ResourceMap[keyof ResourceMap]["type"],
-		action: UnionOf<Actions>,
+		action: Actions[number],
 		RequiresResource: boolean,
 	) => Promise<ConditionTree<S, ResourceMap[keyof ResourceMap], boolean>[]>;
 };
-export type UnionOf<S> = S extends Set<infer T> ? T : never;
 type ActionMethodMap<
-	Actions extends Readonly<Set<string>>,
+	Actions extends Readonly<Array<string>>,
 	ResourceMap extends { [K in keyof ResourceMap]: BaseResource<K & string> },
 > = {
-	[A in UnionOf<Actions>]: (
+	[A in Actions[number]]: (
 		arg:
 			| ResourceMap[keyof ResourceMap]
 			| ResourceMap[keyof ResourceMap]["type"],
@@ -29,13 +28,13 @@ type ActionMethodMap<
 };
 export class AccessControl<
 	S extends BaseSubject,
-	Actions extends Readonly<Set<string>>,
+	Actions extends Readonly<Array<string>>,
 	ResourceMap extends { [K in keyof ResourceMap]: BaseResource<K & string> },
 > {
 	#config: AccessControlConfig<S, Actions, ResourceMap>;
 	async #checkAccess(
 		subject: S,
-		action: UnionOf<Actions>,
+		action: Actions[number],
 		resource:
 			| ResourceMap[keyof ResourceMap]
 			| ResourceMap[keyof ResourceMap]["type"],
@@ -66,7 +65,7 @@ export class AccessControl<
 	}
 
 	can(subject: S): {
-		[A in UnionOf<Actions>]: (
+		[A in Actions[number]]: (
 			arg:
 				| ResourceMap[keyof ResourceMap]
 				| ResourceMap[keyof ResourceMap]["type"],
@@ -77,27 +76,10 @@ export class AccessControl<
 			ResourceMap
 		>;
 
-		for (const action of this.#config.actions as Readonly<
-			Set<UnionOf<Actions>>
-		>) {
-			api[action] = (arg) => this.#checkAccess(subject, action, arg);
+		for (const action of this.#config.actions) {
+			api[action as Actions[number]] = (arg) =>
+				this.#checkAccess(subject, action, arg);
 		}
 		return Object.freeze(api);
 	}
 }
-
-// export function createAccessControl<
-// 	S extends BaseSubject,
-// 	ResourceMap extends { [K in keyof ResourceMap]: BaseResource<K & string> },
-// 	Actions extends Readonly<Set<string>>,
-// >(
-// 	actions: Actions,
-// 	getConditions: (
-// 		subject: S,
-// 		resource: ResourceMap[keyof ResourceMap]["type"],
-// 		action: UnionOf<Actions>,
-// 		RequiresResource: boolean,
-// 	) => Promise<ConditionTree<S, ResourceMap[keyof ResourceMap], boolean>[]>,
-// ) {
-// 	return new AccessControl<S, Actions, ResourceMap>({ actions, getConditions });
-// }
