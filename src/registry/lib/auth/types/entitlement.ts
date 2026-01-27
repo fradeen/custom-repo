@@ -5,7 +5,7 @@ import type { BaseSubject } from "@/registry/lib/auth/types/subject";
 export type Entitlement<
 	S extends BaseSubject,
 	Resource extends BaseResource<string>,
-	Actions extends string[],
+	Actions extends Readonly<string[]>,
 > = {
 	id: number;
 	title: string;
