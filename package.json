@@ -9,8 +9,11 @@
 		"registry:build": "shadcn build"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.3.12",
+		"@biomejs/biome": "^2.3.13",
 		"shadcn": "^3.7.0",
 		"wrangler": "^4.60.0"
+	},
+	"dependencies": {
+		"json-rules-engine": "^7.3.1"
 	}
 }

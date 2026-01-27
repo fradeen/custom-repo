@@ -8,25 +8,22 @@
 			"type": "registry:lib",
 			"title": "Attribute Based Access Control",
 			"description": "Attribute based access controll system",
+			"dependencies": ["json-rules-engine@7.3.1"],
 			"files": [
 				{
 					"path": "src/registry/lib/auth/abac.ts",
 					"type": "registry:lib"
 				},
 				{
-					"path": "src/registry/lib/auth/condition-tree-eval.ts",
-					"type": "registry:lib"
-				},
-				{
-					"path": "src/registry/lib/auth/constant.ts",
-					"type": "registry:lib"
-				},
-				{
-					"path": "src/registry/lib/auth/types/condition-tree.ts",
+					"path": "src/registry/lib/auth/types/condition.ts",
 					"type": "registry:lib"
 				},
 				{
 					"path": "src/registry/lib/auth/types/entitlement.ts",
+					"type": "registry:lib"
+				},
+				{
+					"path": "src/registry/lib/auth/types/operator.ts",
 					"type": "registry:lib"
 				},
 				{

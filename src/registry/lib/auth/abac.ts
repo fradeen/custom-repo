@@ -1,5 +1,5 @@
-import { evaluateConditionTree } from "@/registry/lib/auth/condition-tree-eval";
-import type { ConditionTree } from "@/registry/lib/auth/types/condition-tree";
+import { Engine } from "json-rules-engine";
+import type { Condition } from "@/registry/lib/auth/types/condition";
 import type { BaseResource } from "@/registry/lib/auth/types/resource";
 import type { BaseSubject } from "@/registry/lib/auth/types/subject";
 
@@ -14,7 +14,7 @@ type AccessControlConfig<
 		resource: ResourceMap[keyof ResourceMap]["type"],
 		action: Actions[number],
 		RequiresResource: boolean,
-	) => Promise<ConditionTree<S, ResourceMap[keyof ResourceMap], boolean>[]>;
+	) => Promise<Condition<S, ResourceMap[keyof ResourceMap], boolean>[]>;
 };
 type ActionMethodMap<
 	Actions extends Readonly<Array<string>>,
@@ -39,26 +39,46 @@ export class AccessControl<
 			| ResourceMap[keyof ResourceMap]
 			| ResourceMap[keyof ResourceMap]["type"],
 	): Promise<boolean> {
-		const resourceType =
-			typeof resource === "string" ? resource : resource.type;
-		const conditions = await this.#config.getConditions(
-			subject,
-			resourceType,
-			action,
-			!(typeof resource === "string"),
-		);
-		console.info("conditions for authorization:", conditions);
-		if (!conditions.length)
-			console.error("No conditions/policies found for role-resource combo.");
-		return conditions.some((condition) => {
-			if (typeof resource === "string")
-				return evaluateConditionTree(condition, { subject: subject });
-			else
-				return evaluateConditionTree(condition, {
-					subject: subject,
-					resource: resource,
+		try {
+			const resourceType =
+				typeof resource === "string" ? resource : resource.type;
+			const conditions = await this.#config.getConditions(
+				subject,
+				resourceType,
+				action,
+				!(typeof resource === "string"),
+			);
+			if (!conditions.length)
+				throw new Error(
+					"No conditions/policies found for subject, resource/resource-type combo.",
+				);
+			const evalEngine = new Engine();
+			evalEngine.addFact(
+				"context",
+				typeof resource === "string"
+					? { subject: subject }
+					: {
+							subject: subject,
+							resource: resource,
+						},
+			);
+			for (const condition of conditions) {
+				evalEngine.removeRule("rule");
+				evalEngine.addRule({
+					name: "rule",
+					conditions: condition,
+					event: {
+						type: "success",
+					},
 				});
-		});
+				const { events } = await evalEngine.run();
+				if (events[0]) return true;
+			}
+			return false;
+		} catch (e) {
+			console.error(e);
+			return false;
+		}
 	}
 	constructor(config: AccessControlConfig<S, Actions, ResourceMap>) {
 		this.#config = config;
