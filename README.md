@@ -1,121 +1,176 @@
 # Custom shadcn registry for Attribute Based Access Control (ABAC) system
 
-This repository is a shadcn "custom registry" that ships a small, strongly-typed ABAC helper and types. When added via the shadcn CLI the files under `src/registry/lib/auth/*` are copied into the target project to provide a ready-to-use, serializable access-control system.
 
-## Installation
+> [!WARNING]
+> **Warning — Alpha quality**
+>
+> This project is alpha-quality software and may break unexpectedly. Use at your own risk. You are responsible for auditing the security and correctness of this code before using it in production.
 
-Add "Access Controll" lib from this registry via the shadcn CLI 
-```sh
+
+> [!WARNING]
+> **Known issues**
+>
+> - Adding optional keys to Subject or Resource types can break TypeScript type inference. Prefer required keys or explicit type annotations until this is resolved.
+
+This repository provides a small, strongly-typed, and fully serializable ABAC helper set intended to be copied into your project by the shadcn CLI. It focuses on type-safety, runtime-evaluable Conditions, and easy persistence of entitlements/policies.
+
+### Installation
+
+Add "Access Controll" lib from this registry via the shadcn CLI
+
+`
 npx shadcn@latest add https://registry.frad-fardeen.workers.dev/r/access-control.json
-```
+`
 
-## Primary files:
+### Key files
+
 - `src/registry/lib/auth/abac.ts` — AccessControl implementation.
-- `src/registry/lib/auth/types/*` — Base types (subject, resource, condition, operator, policy, entitlements).
+- `src/registry/lib/auth/types/*` — Strongly-typed building blocks:
+  - `subject.ts`, `resource.ts`, `condition.ts`, `operator.ts`, `policy.ts`, `entitlement.ts`
 
-## Basic Usage Example:
+### Core ideas
 
+- Types-first: compile-time guarantees for Subjects, Actions and Resources via generics.
+- Serializable rules: Conditions, Entitlements and Policies are plain JSON-compatible structures that can be stored in DBs, KV stores, or sent over the network.
+- Pluggable runtime: AccessControl accepts an async `getConditions` function that you implement to load rules (from in-memory, DB, KV, etc.) and convert them to executable Condition structures.
+
+### Primary helper types
+
+- BaseSubject — a simple object with attributes you use in checks (e.g. `{ id: string }`).
+- BaseResource<T extends string> — `{ type: T; [key: string]: unknown }`. The `type` literal discriminates resource shapes.
+- WithType<T, R> — helper to add a `type` literal to a resource shape.
+- BaseResourceMap — maps resource type literal keys to their resource types; used to strongly type APIs.
+- Condition<S, R, RB> — the runtime-evaluable condition AST (fact, operator, path, nested facts, all or any compositions). RB indicates whether resource references are allowed.
+- Operator — allowed comparison operators (equal, notEqual, etc.).
+- Policy — named collection of Conditions and metadata.
+- Entitlement — minimal serializable descriptor that references Policies or encodes Conditions; intended to be persisted.
+
+#### How generics fit together
+
+AccessControl<S, Actions, ResourceMap>
+- S: Subject type (extends BaseSubject)
+- Actions: a readonly tuple of action string literals (e.g. readonly ["read","edit"])
+- ResourceMap: BaseResourceMap describing resource shapes
+
+#### Constructor config:
+- actions: ReadonlyArray<string> (the same tuple type used in generics)
+- getConditions: async (subject: S, resourceOrType: Resource | string, action: Action, requiresResource: boolean) => Promise<Condition<S, Resource, boolean>[]>
+  - requiresResource is true when a resource instance was passed to the check (so Conditions can reference resource fields).
+
+###  Usage: minimal example
+
+creating types for subject, resources, actions...
 ```ts
 import { AccessControl } from "@/registry/lib/auth/abac";
 import type { Condition } from "@/registry/lib/auth/types/condition";
 import type { BaseResourceMap } from "@/registry/lib/auth/types/resource";
+import type { Entitlement } from "@/registry/lib/auth/types/entitlement";
 
-/*
-Declare types of resources in the system.
-It is essential that each resource type has a key "type" which is of type string.
-use "WithType" helper type to add type key to existing type eg:
-type Resource = {attr: atring}
-type ResourceWithType = WithType<"resource",Resource>
-*/
-export type Resource1 = { type: "resource1"; attr1: string };
-export type Resource2 = { type: "resource2"; attr1: number };
-/*
-Create resource map; mapping each resource type to string key with same literal key as type property of the resource.
-BaseResourceMap helper type ensures the criteria described above.
-*/
-export type ResourceMap = BaseResourceMap<{
-	resource1: Resource1;
-	resource2: Resource2;
-}>;
-// Declare actions and associated types; actions list must be readonly
+/* Resource and action types */
+export type Doc = { type: "doc"; ownerId: number; published: boolean };
+export type Image = { type: "image"; ownerId: number };
+
+export type ResourceMap = BaseResourceMap<{ doc: Doc; image: Image }>;
+
 export const ACTIONS = ["read", "edit"] as const;
 export type Actions = typeof ACTIONS;
 export type Action = Actions[number];
-//Declare subject type which just needs to be Record<string,unknown>; i.e basic object
+
 export type User = { id: number; name: string };
-/*
-Create new instance of AccessControl class by passing three generics: 
+```
+In-line / in-code entitlements (serializable)
 
-1. Subject type: 
-2. Actions: type of actions list passed as part of config object passed to constructor
-3. ResourceMap: 
-
-Constructor args: 
-object with two properties: 
-
-1. actions: read only list of actions applicable to resources in the resource map 
-2. getConditions: an async method that takes subject, resource,action, requiresResorce args and returns
-a list of conditions of type Condition<Subject, Resource, boolean>
- */
-const accessControl = new AccessControl<User, Actions, ResourceMap>({
-	actions: ACTIONS,
-	async getConditions(subject, resource, action, RequiresResource) {
-		const condition: Condition<User, Resource1, true> = {
-			kind: "all",
-			all: [
-				{
-					fact: "context",
-					operator: "equal",
-					path: "$.subject.id",
-					value: 123,
-				},
-				{
-					fact: "context",
-					operator: "equal",
-					path: "$.subject.name",
-					value: {
+Entitlements are plain objects you can keep in source, JSON files, or a DB.
+At runtime, getConditions reads entitlements and converts them to Condition ASTs.
+Example entitlement store (could be DB rows / KV values):
+```ts
+const entitlement: Entitlement<User, Doc, typeof ACTIONS> = {
+	id: 123,
+	title: "doc access policies",
+	description: "",
+	resource: "doc",
+	policies: {
+		edit: {
+			requiresResource: true,
+			// serialized condition: subject.id == resource.ownerId
+			conditions: {
+				kind: "all",
+				all: [
+					{
 						fact: "context",
-						path: "$.resource.attr1",
+						path: "$.subject.id",
+						operator: "equal",
+						value: {
+							fact: "context",
+							path: "$.resource.ownerId",
+						},
 					},
-				},
-			],
-		};
-		return [condition] as Condition<User, Resource1, boolean>[];
+				],
+			},
+		},
+		read: {
+			requiresResource: true,
+			// comparison with literal values
+			conditions: {
+				kind: "all",
+				all: [
+					{
+						fact: "context",
+						path: "$.resource.published",
+						operator: "equal",
+						value: true,
+					},
+				],
+			},
+		},
+	},
+};
+```
+AccessControl instantiation and getConditions
+
+```ts
+const ac = new AccessControl<User, Actions, ResourceMap>({
+	actions: ACTIONS,
+	async getConditions(_subject, resourceOrType, action, _requiresResource) {
+		// Load entitlements for this action + resource type (from memory/DB/KV)
+		const matches = entitlement.policies[action]?.conditions;
+
+		// Each entitlement.condition already matches the Condition<S, Resource, boolean> shape.
+		// If entitlements are stored in DB as JSON, parse and return them here.
+		return [matches] as Condition<User, Doc | Image, boolean>[];
 	},
 });
+```
+Check examples
 
-console.log(
-	await accessControl
-		.can({ id: 123, name: "user" })
-		.read({ type: "resource1", attr1: "user" }),
-);
-// logs : true
-
+```ts
+// Check with a resource instance (requiresResource=true)
+const allowed = await ac
+	.can({ id: 1, name: "A" })
+	.read({ type: "doc", ownerId: 1, published: true });
+// Check by resource type only (requiresResource=false)
+const allowedByType = await ac.can({ id: 1, name: "A" }).read("doc");
 ```
 
-## Core concepts and types
+#### Serialization & persistence
 
-- BaseSubject
-  - A lightweight constraint on subject objects passed to checks (your user/principal shape).
-  - Use a plain object type that contains the identity or attributes you want to test (e.g. `{ id: string }`, `{ uid: string; roles?: string[] }`).
+Conditions, Policies and Entitlements are simple JSON-compatible objects (no functions). You can:
+store them in a relational DB as JSON columns
+write them into KV stores, S3, or files
+transfer them between services
+When loaded, getConditions should rehydrate these objects (if needed) and return Condition ASTs that the AccessControl evaluator runs against the provided evaluation context ({ subject, resource, env, ... }).
 
-- BaseResource<T extends string>
-  - Shape: `{ type: T; [key: string]: unknown }`.
-  - `type` is a literal discriminant for the resource (e.g. "doc", "repo", "image").
-  - Additional attributes on a resource instance are allowed and are included in evaluation context.
+#### Best practices
 
-- BaseResourceMap<T>
-  - A mapping of resource keys to their BaseResource types, e.g.:
-    `{ doc: BaseResource<"doc">; other: BaseResource<"other"> }`.
-  - This lets the AccessControl API be fully typed for allowed resource types.
+- Keep entitlements minimal and referenceable: prefer referencing policy IDs or small condition objects.
+- When adding new operators or facts, update the operator types implementations in src/registry/lib/auth/types.
+- Use the ResourceMap generic to get exhaustive type-checking when your code enumerates resource types or accesses resource-specific fields in typed code.
+- Normalize entitlements in your DB into relations/collections such as entitlements, policies, and conditions. Store conditions as small JSON blobs referenced by policies so, at retrieval time, you can query only the subset of policies/conditions relevant to the requested action/resource/subject. This reduces rows read and the number of conditions evaluated, improving performance and cost.
 
-- AccessControl<S, Actions, ResourceMap>
-  - Generics:
-    - S: subject type (extends BaseSubject).
-    - Actions: readonly array of string literals (e.g. `readonly ["read","write"]`).
-    - ResourceMap: BaseResourceMap describing available resource types.
-  - Constructor config:
-    - `actions: ReadonlyArray<string>`
-    - `getConditions: (subject, resourceType, action, requiresResource) => Promise<Condition[]>`
-      - `resourceType` is the resource type string (extracted from a resource object or provided directly).
-      - `requiresResource` is true when the caller passed a resource *object* (so policies may reference `resource` fields); false when only a resource-type string was provided.
+
+#### Appendix: where to look in code
+
+Condition AST shape and allowed operators: src/registry/lib/auth/types/condition.ts
+Policy & Entitlement types: src/registry/lib/auth/types/policy.ts, entitlement.ts
+AccessControl runtime and evaluator: src/registry/lib/auth/abac.ts
+This registry is designed so you can persist human-readable, serializable entitlement objects and evaluate them in a type-safe manner at runtime.
