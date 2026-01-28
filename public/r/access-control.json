@@ -32,7 +32,7 @@
 		},
 		{
 			"path": "src/registry/lib/auth/types/resource.ts",
-			"content": "export type BaseResource<T extends string> = {\n\ttype: T;\n\t[key: string]: unknown;\n};\nexport type BaseResourceMap<\n\tT extends { [K in keyof T]: BaseResource<K & string> },\n> = T;\n",
+			"content": "export type BaseResource<T extends string> = {\n\ttype: T;\n\t[key: string]: unknown;\n};\nexport type BaseResourceMap<\n\tT extends { [K in keyof T]: BaseResource<K & string> },\n> = T;\nexport type WithType<K extends string, T> = T & { type: K };\n",
 			"type": "registry:lib"
 		},
 		{

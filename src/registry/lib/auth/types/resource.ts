@@ -5,3 +5,4 @@ export type BaseResource<T extends string> = {
 export type BaseResourceMap<
 	T extends { [K in keyof T]: BaseResource<K & string> },
 > = T;
+export type WithType<K extends string, T> = T & { type: K };
