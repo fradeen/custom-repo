@@ -9,8 +9,14 @@
 		"format": "biome check --write",
 		"registry:build": "shadcn build",
 		"build": "npm run registry:build && npm run format",
-		"test": "vitest",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"coverage": "vitest run --coverage"
+	},
+	"devEngines": {
+		"packageManager": {
+			"name": "npm"
+		}
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.3.13",
